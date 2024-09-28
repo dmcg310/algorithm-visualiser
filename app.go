@@ -35,7 +35,7 @@ func (a *App) Run() {
 	eventQueue := make(chan tcell.Event)
 	quitQueue := make(chan struct{})
 
-	fps := 90
+	fps := 45
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
@@ -102,6 +102,18 @@ func (a *App) Run() {
 					a.screen.Show()
 				}
 
+				if rune == '1' {
+					if a.sortingAlgorithm.Name != "Bubble" {
+						a.switchAlgorithm("Bubble")
+					}
+				}
+
+				if rune == '2' {
+					if a.sortingAlgorithm.Name != "Selection" {
+						a.switchAlgorithm("Selection")
+					}
+				}
+
 				if key == tcell.KeyEscape ||
 					key == tcell.KeyCtrlC || rune == 'q' {
 					close(quitQueue)
@@ -149,8 +161,8 @@ func (a *App) render() {
 		}
 	}
 
-	arrayStartY := 2          // Status bar offset
-	arrayHeight := height - 8 // Keybindings offset
+	arrayStartY := 2           // Status bar offset
+	arrayHeight := height - 10 // Keybindings offset
 	minCellWidth := 1
 	maxCellWidth := 4
 	horizontalPadding := 4
@@ -177,9 +189,8 @@ func (a *App) render() {
 
 	currentIndex, nextIndex := -1, -1
 	if a.sortingStarted && !a.sortingAlgorithm.IsFinished() {
-		if bubble, ok := a.sortingAlgorithm.Algorithm.(*Bubble); ok {
-			currentIndex, nextIndex = bubble.GetCurrentIndices()
-		}
+		currentIndex, nextIndex =
+			a.sortingAlgorithm.Algorithm.GetCurrentIndices()
 	}
 
 	for i := 0; i < visibleElements && i < len(a.sortingAlgorithm.Array.Values); i++ {
@@ -225,6 +236,7 @@ func (a *App) renderKeybindings(height int) {
 		"r: Reset",
 		"space: Step (when paused)",
 		"q/esc/ctrl-c: Quit",
+		"1: Bubble sort, 2: Selection sort",
 	}
 
 	for i, binding := range keybindings {
@@ -237,6 +249,11 @@ func (a *App) renderKeybindings(height int) {
 			}
 		}
 	}
+}
+
+func (a *App) switchAlgorithm(name string) {
+	a.sortingAlgorithm = NewSortingAlgorithm(name)
+	a.reset()
 }
 
 func (a *App) reset() {

@@ -10,6 +10,7 @@ type Algorithm interface {
 	Step(array *SortArray)
 	IsFinished() bool
 	Reset(array *SortArray)
+	GetCurrentIndices() (int, int)
 }
 
 type Bubble struct {
@@ -17,6 +18,12 @@ type Bubble struct {
 	innerIndex int
 	swapped    bool
 	finished   bool
+}
+
+type Selection struct {
+	currentIndex int
+	minIndex     int
+	finished     bool
 }
 
 type SortingAlgorithm struct {
@@ -43,6 +50,8 @@ func NewSortingAlgorithm(name string) SortingAlgorithm {
 	switch name {
 	case "Bubble":
 		alg = &Bubble{}
+	case "Selection":
+		alg = &Selection{}
 	default:
 		alg = &Bubble{}
 	}
@@ -68,6 +77,8 @@ func (sa *SortingAlgorithm) Reset() {
 	sa.Array = NewSortArray(50, 20)
 	sa.Algorithm.Reset(&sa.Array)
 }
+
+// BUBBLE
 
 func (b *Bubble) Step(array *SortArray) {
 	if b.outerIndex >= len(array.Values)-1 {
@@ -110,3 +121,47 @@ func (b *Bubble) Reset(array *SortArray) {
 	b.swapped = false
 	b.finished = false
 }
+
+// SELECTION
+
+func (s *Selection) Step(array *SortArray) {
+	if s.currentIndex >= len(array.Values)-1 {
+		s.finished = true
+		return
+	}
+
+	// Find the minimum element in the unsorted portion
+	if s.minIndex == s.currentIndex {
+		s.minIndex = s.currentIndex
+		for i := s.currentIndex + 1; i < len(array.Values); i++ {
+			if array.Values[i] < array.Values[s.minIndex] {
+				s.minIndex = i
+			}
+		}
+	}
+
+	// Swap the found minimum element with the first element of the unsorted portion
+	if s.minIndex != s.currentIndex {
+		array.Values[s.currentIndex], array.Values[s.minIndex] =
+			array.Values[s.minIndex], array.Values[s.currentIndex]
+	}
+
+	// Move to the next element
+	s.currentIndex++
+	s.minIndex = s.currentIndex
+}
+
+func (s *Selection) GetCurrentIndices() (int, int) {
+	return s.currentIndex, s.minIndex
+}
+
+func (s *Selection) IsFinished() bool {
+	return s.finished
+}
+
+func (s *Selection) Reset(array *SortArray) {
+	s.currentIndex = 0
+	s.minIndex = 0
+	s.finished = false
+}
+
