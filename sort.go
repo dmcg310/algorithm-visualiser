@@ -96,6 +96,10 @@ func (b *Bubble) Step(array *SortArray) {
 	b.innerIndex++
 }
 
+func (b *Bubble) GetCurrentIndices() (int, int) {
+	return b.innerIndex, b.innerIndex + 1
+}
+
 func (b *Bubble) IsFinished() bool {
 	return b.finished
 }

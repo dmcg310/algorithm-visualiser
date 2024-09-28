@@ -143,7 +143,7 @@ func (a *App) render() {
 	for x := 0; x < width; x++ {
 		if x < len(status) {
 			a.screen.SetContent(x, 0, rune(status[x]), nil,
-				tcell.StyleDefault.Foreground(tcell.ColorYellow))
+				tcell.StyleDefault.Foreground(tcell.ColorSkyblue))
 		} else {
 			a.screen.SetContent(x, 0, ' ', nil, tcell.StyleDefault)
 		}
@@ -174,11 +174,26 @@ func (a *App) render() {
 
 	arrayWidth := visibleElements * cellWidth
 	arrayStartX := (width - arrayWidth) / 2
+
+	currentIndex, nextIndex := -1, -1
+	if a.sortingStarted && !a.sortingAlgorithm.IsFinished() {
+		if bubble, ok := a.sortingAlgorithm.Algorithm.(*Bubble); ok {
+			currentIndex, nextIndex = bubble.GetCurrentIndices()
+		}
+	}
+
 	for i := 0; i < visibleElements && i < len(a.sortingAlgorithm.Array.Values); i++ {
 		value := a.sortingAlgorithm.Array.Values[i]
 		xStart := arrayStartX + (i * cellWidth)
 		normalizedHeight := int(float64(value) / float64(maxValue) *
 			float64(arrayHeight))
+
+		var cellColor tcell.Color
+		if i == currentIndex || i == nextIndex {
+			cellColor = tcell.ColorRed
+		} else {
+			cellColor = tcell.ColorWhite
+		}
 
 		for dx := 0; dx < cellWidth; dx++ {
 			x := xStart + dx
@@ -188,7 +203,7 @@ func (a *App) render() {
 					a.screen.SetContent(x,
 						arrayStartY+arrayHeight-y-1, ' ',
 						nil, tcell.StyleDefault.Background(
-							tcell.ColorWhite))
+							cellColor))
 				} else {
 					a.screen.SetContent(x,
 						arrayStartY+arrayHeight-y-1, ' ',
