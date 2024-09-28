@@ -5,9 +5,7 @@ import "github.com/gdamore/tcell/v2"
 type Screen tcell.Screen
 
 type Grid struct {
-	Width, Height  int
-	NeedsRefreshed bool
-	SortArray      SortArray
+	Width, Height int
 }
 
 func InitScreen() (Screen, error) {
@@ -25,9 +23,7 @@ func InitScreen() (Screen, error) {
 
 func NewGrid(width, height int) *Grid {
 	return &Grid{
-		Width:          width,
-		Height:         height,
-		NeedsRefreshed: true,
-		SortArray:      NewSortArray(50, 20),
+		Width:  width,
+		Height: height,
 	}
 }

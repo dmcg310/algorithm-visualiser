@@ -12,7 +12,10 @@ type App struct {
 	screen           Screen
 	isRunning        bool
 	isPaused         bool
-	currentAlgorithm string
+	sortingAlgorithm SortingAlgorithm
+	sortingStarted   bool
+	stepCount        int
+	readyToSort      bool
 }
 
 func NewApp(s Screen, g Grid) *App {
@@ -21,7 +24,10 @@ func NewApp(s Screen, g Grid) *App {
 		screen:           s,
 		isRunning:        true,
 		isPaused:         true,
-		currentAlgorithm: "Bubble",
+		sortingAlgorithm: NewSortingAlgorithm("Bubble"),
+		sortingStarted:   false,
+		stepCount:        0,
+		readyToSort:      false,
 	}
 }
 
@@ -29,7 +35,7 @@ func (a *App) Run() {
 	eventQueue := make(chan tcell.Event)
 	quitQueue := make(chan struct{})
 
-	fps := 5
+	fps := 60
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
@@ -67,12 +73,6 @@ func (a *App) Run() {
 	}()
 
 	for {
-		if a.grid.NeedsRefreshed {
-			a.render()
-			a.screen.Show()
-			a.grid.NeedsRefreshed = false
-		}
-
 		select {
 		case event := <-eventQueue:
 			switch event := event.(type) {
@@ -81,12 +81,22 @@ func (a *App) Run() {
 				key := event.Key()
 
 				if rune == 'p' {
-					a.isPaused = !a.isPaused
-					a.render()
-					a.screen.Show()
+					if a.sortingStarted {
+						a.isPaused = !a.isPaused
+					}
 				}
 
-				if rune == ' ' && a.isPaused {
+				if rune == 's' && !a.sortingStarted {
+					a.sortingStarted = true
+					a.readyToSort = true
+					a.isPaused = false
+				}
+
+				if rune == 'r' {
+					a.reset()
+				}
+
+				if rune == ' ' && a.isPaused && a.sortingStarted {
 					a.update()
 					a.render()
 					a.screen.Show()
@@ -98,38 +108,126 @@ func (a *App) Run() {
 					return
 				}
 			}
+		case <-ticker.C:
+			if a.sortingStarted && a.readyToSort && !a.isPaused {
+				a.update()
+			}
+
+			a.render()
+			a.screen.Show()
 		case <-quitQueue:
-			break
-		default:
-			time.Sleep(time.Millisecond * 10)
+			return
 		}
 	}
 }
 
 func (a *App) update() {
+	if a.sortingAlgorithm.IsFinished() {
+		return
+	}
+
+	a.sortingAlgorithm.Step()
+	a.stepCount++
 }
 
 func (a *App) render() {
 	a.screen.Clear()
+	width, height := a.screen.Size()
 
-	width, _ := a.screen.Size()
-	status := fmt.Sprintf("Paused: %v | Algorithm: %s", a.isPaused, a.currentAlgorithm)
+	status := fmt.Sprintf(`Paused: %v | Started: %v | Algorithm: %s | Steps: %d`,
+		a.isPaused, a.sortingStarted, a.sortingAlgorithm.Name, a.stepCount)
 	if len(status) > width {
 		status = status[:width-3] + "..."
 	}
 
 	for x := 0; x < width; x++ {
 		if x < len(status) {
-			a.screen.SetContent(x, 0, rune(status[x]), nil, tcell.StyleDefault.Foreground(tcell.ColorYellow))
+			a.screen.SetContent(x, 0, rune(status[x]), nil,
+				tcell.StyleDefault.Foreground(tcell.ColorYellow))
 		} else {
 			a.screen.SetContent(x, 0, ' ', nil, tcell.StyleDefault)
 		}
 	}
 
-	for x, value := range a.grid.SortArray.Values {
-		for y := 0; y < value; y++ {
-			a.screen.SetContent(x, a.grid.Height-y-1, ' ', nil,
-				tcell.StyleDefault.Background(tcell.ColorWhite))
+	arrayStartY := 2          // Status bar offset
+	arrayHeight := height - 8 // Keybindings offset
+	minCellWidth := 1
+	maxCellWidth := 4
+	horizontalPadding := 4
+	availableWidth := width - horizontalPadding
+	cellWidth := maxCellWidth
+	visibleElements := len(a.sortingAlgorithm.Array.Values)
+
+	for cellWidth >= minCellWidth && visibleElements*cellWidth > availableWidth {
+		if cellWidth == minCellWidth {
+			visibleElements = availableWidth / cellWidth
+			break
 		}
 	}
+
+	maxValue := 0
+	for i := 0; i < visibleElements && i < len(a.sortingAlgorithm.Array.Values); i++ {
+		if a.sortingAlgorithm.Array.Values[i] > maxValue {
+			maxValue = a.sortingAlgorithm.Array.Values[i]
+		}
+	}
+
+	arrayWidth := visibleElements * cellWidth
+	arrayStartX := (width - arrayWidth) / 2
+	for i := 0; i < visibleElements && i < len(a.sortingAlgorithm.Array.Values); i++ {
+		value := a.sortingAlgorithm.Array.Values[i]
+		xStart := arrayStartX + (i * cellWidth)
+		normalizedHeight := int(float64(value) / float64(maxValue) *
+			float64(arrayHeight))
+
+		for dx := 0; dx < cellWidth; dx++ {
+			x := xStart + dx
+
+			for y := 0; y < arrayHeight; y++ {
+				if y < normalizedHeight {
+					a.screen.SetContent(x,
+						arrayStartY+arrayHeight-y-1, ' ',
+						nil, tcell.StyleDefault.Background(
+							tcell.ColorWhite))
+				} else {
+					a.screen.SetContent(x,
+						arrayStartY+arrayHeight-y-1, ' ',
+						nil, tcell.StyleDefault.Background(
+							tcell.ColorBlack))
+				}
+			}
+		}
+	}
+
+	a.renderKeybindings(height)
+}
+
+func (a *App) renderKeybindings(height int) {
+	width, _ := a.screen.Size()
+	keybindings := []string{
+		"s: Start sorting",
+		"p: Pause/Resume",
+		"r: Reset",
+		"space: Step (when paused)",
+		"q/esc/ctrl-c: Quit",
+	}
+
+	for i, binding := range keybindings {
+		y := height - len(keybindings) + i
+		for x, ch := range binding {
+			if x < width {
+				a.screen.SetContent(x, y, ch, nil,
+					tcell.StyleDefault.Foreground(
+						tcell.ColorSkyblue))
+			}
+		}
+	}
+}
+
+func (a *App) reset() {
+	a.sortingAlgorithm.Reset()
+	a.sortingStarted = false
+	a.isPaused = true
+	a.stepCount = 0
+	a.readyToSort = false
 }
