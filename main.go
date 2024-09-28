@@ -18,7 +18,7 @@ func main() {
 			if s, err := InitScreen(); err != nil {
 				log.Fatal(err)
 			} else {
-				NewApp(s).Run()
+				NewApp(s, *NewGrid(s.Size())).Run()
 			}
 
 			return nil
