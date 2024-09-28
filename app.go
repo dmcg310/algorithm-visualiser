@@ -35,7 +35,7 @@ func (a *App) Run() {
 	eventQueue := make(chan tcell.Event)
 	quitQueue := make(chan struct{})
 
-	fps := 60
+	fps := 90
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
