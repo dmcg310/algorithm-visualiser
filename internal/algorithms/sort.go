@@ -1,4 +1,4 @@
-package main
+package algorithms
 
 import "math/rand"
 
@@ -164,4 +164,3 @@ func (s *Selection) Reset(array *SortArray) {
 	s.minIndex = 0
 	s.finished = false
 }
-

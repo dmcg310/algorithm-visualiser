@@ -2,36 +2,63 @@ package main
 
 import (
 	"fmt"
+	"github.com/dmcg310/algorithm-visualiser/internal/algorithms"
+	"github.com/dmcg310/algorithm-visualiser/internal/ui"
+	"github.com/urfave/cli/v2"
+	"log"
+	"os"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
 )
 
 type App struct {
-	grid             Grid
-	screen           Screen
+	grid             ui.Grid
+	screen           ui.Screen
 	isRunning        bool
 	isPaused         bool
-	sortingAlgorithm SortingAlgorithm
+	sortingAlgorithm algorithms.SortingAlgorithm
 	sortingStarted   bool
 	stepCount        int
 	readyToSort      bool
 }
 
-func NewApp(s Screen, g Grid) *App {
+func main() {
+	app := &cli.App{
+		Name:        "Algorithm Visualiser",
+		Usage:       "Visualise algorithms in the terminal!",
+		UsageText:   "algorithm-visualiser",
+		Description: `This program allows for a number of algorithms to be visualised in the terminal.`,
+		Action: func(ctx *cli.Context) error {
+			if s, err := ui.InitScreen(); err != nil {
+				log.Fatal(err)
+			} else {
+				newApp(s, *ui.NewGrid(s.Size())).run()
+			}
+
+			return nil
+		},
+	}
+
+	if err := app.Run(os.Args); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func newApp(s ui.Screen, g ui.Grid) *App {
 	return &App{
 		grid:             g,
 		screen:           s,
 		isRunning:        true,
 		isPaused:         true,
-		sortingAlgorithm: NewSortingAlgorithm("Bubble"),
+		sortingAlgorithm: algorithms.NewSortingAlgorithm("Bubble"),
 		sortingStarted:   false,
 		stepCount:        0,
 		readyToSort:      false,
 	}
 }
 
-func (a *App) Run() {
+func (a *App) run() {
 	eventQueue := make(chan tcell.Event)
 	quitQueue := make(chan struct{})
 
@@ -39,7 +66,7 @@ func (a *App) Run() {
 	ticker := time.NewTicker(time.Second / time.Duration(fps))
 	defer ticker.Stop()
 
-	quit := func(screen Screen) {
+	quit := func(screen ui.Screen) {
 		maybePanic := recover()
 		screen.Fini()
 		if maybePanic != nil {
@@ -252,7 +279,7 @@ func (a *App) renderKeybindings(height int) {
 }
 
 func (a *App) switchAlgorithm(name string) {
-	a.sortingAlgorithm = NewSortingAlgorithm(name)
+	a.sortingAlgorithm = algorithms.NewSortingAlgorithm(name)
 	a.reset()
 }
 
